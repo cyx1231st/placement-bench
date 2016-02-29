@@ -10,9 +10,11 @@ import uuid
 
 import six
 
+import compute_node
 import const
 import db
 import placement
+import scheduler_node
 
 LOG = logging.getLogger('main')
 
@@ -368,26 +370,82 @@ def main():
     for x in six.moves.xrange(args.workers):
         request_queue.put(None)
 
-    workers = []
-    worker_done_events = []
-    wallclock_start_time = time.time()
-    for x in six.moves.xrange(args.workers):
-        e = multiprocessing.Event()
-        p = multiprocessing.Process(
-                target=placement.run,
-                args=(args, request_queue, result_queue, e))
-        workers.append(p)
-        worker_done_events.append(e)
-        p.start()
+    wallclock_start_time = 0
+    if not args.do_claim_in_compute:
+        workers = []
+        worker_done_events = []
+        wallclock_start_time = time.time()
+        for x in six.moves.xrange(args.workers):
+            e = multiprocessing.Event()
+            p = multiprocessing.Process(
+                    target=placement.run,
+                    args=(args, request_queue, result_queue, e))
+            workers.append(p)
+            worker_done_events.append(e)
+            p.start()
 
-    LOG.info("Created %d scheduler worker(s)." % len(workers))
+        LOG.info("Created %d scheduler worker(s)." % len(workers))
 
-    for x in six.moves.xrange(args.workers):
-        e = worker_done_events[x]
-        LOG.debug("Waiting for worker %d to set its done event." % x)
-        e.wait()
+        for x in six.moves.xrange(args.workers):
+            e = worker_done_events[x]
+            LOG.debug("Waiting for worker %d to set its done event." % x)
+            e.wait()
 
-    tot_wallclock_time = time.time() - wallclock_start_time
+        tot_wallclock_time = time.time() - wallclock_start_time
+    else:
+        args.filter_strategy = 'python'
+        scheduler_queue_map = {}
+        scheduler_init = []
+        for x in six.moves.xrange(args.workers):
+            scheduler_queue = mp_manager.Queue()
+            scheduler_queue_map[x] = scheduler_queue
+            scheduler_init.append((x, scheduler_queue))
+        compute_nodes = []
+        count_nodes = calc_num_nodes_from_args(args)
+        compute_queue_map = {}
+        for row in six.moves.xrange(args.rows):
+            for rack in six.moves.xrange(args.racks):
+                for node in six.moves.xrange(args.nodes):
+                    node_name = 'row%02drack%02dnode%02d' % (row, rack, node)
+                    compute_queue = mp_manager.Queue()
+                    p = multiprocessing.Process(
+                            target=compute_node.run,
+                            args=(args, node_name,
+                                  scheduler_queue_map, compute_queue))
+                    compute_nodes.append(p)
+                    p.start()
+                    compute_queue_map[node_name] = compute_queue
+        scheduler_nodes = []
+        scheduler_ready_events = []
+        scheduler_start_events = []
+        scheduler_done_events = []
+        for scheduler in scheduler_init:
+            name, queue = scheduler
+            done_event = multiprocessing.Event()
+            scheduler_done_events.append(done_event)
+            ready_event = multiprocessing.Event()
+            scheduler_ready_events.append(ready_event)
+            start_event = multiprocessing.Event()
+            scheduler_start_events.append(start_event)
+            p = multiprocessing.Process(
+                    target=scheduler_node.run,
+                    args=(args, name, compute_queue_map, queue,
+                          done_event, ready_event, start_event,
+                          request_queue, result_queue))
+            scheduler_nodes.append(p)
+            p.start()
+
+        for ready in scheduler_ready_events:
+            ready.wait()
+
+        LOG.info("Schedulers are ready, start!")
+        wallclock_start_time = time.time()
+        for start in scheduler_start_events:
+            start.set()
+        for done in scheduler_done_events:
+            done.wait()
+        LOG.info("Done")
+        tot_wallclock_time = time.time() - wallclock_start_time
 
     # Wait for and collate our results. There should be one result entry
     # for each worker in the process pool.
