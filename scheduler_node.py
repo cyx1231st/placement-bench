@@ -82,11 +82,13 @@ def schedule(record, records, compute_queue_map,
                                     scheduler_name, selected.name)
     # send
     compute_queue_map[selected.name].put(claim)
+    res.messages += 1
     return selected
 
 
 def process_msg(reply, scheduler_queue, scheduler_name,
                 node_states, records, compute_queue_map, res, args):
+    res.messages += 1
     if reply.scheduler == scheduler_name:
         if reply.proceed:
             # success

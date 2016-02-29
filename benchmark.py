@@ -133,6 +133,9 @@ def print_compiled_results(args, results, total_wallclock_time):
     claim_max_trx_time = max(r.claim_max_trx_time for r in results)
     claim_total_deadlock_sleep_time = sum(r.claim_total_deadlock_sleep_time for r in results)
     success_claims_per_second = claim_success_count / total_wallclock_time
+    messages = sum(r.messages for r in results)
+    messages_per_query = messages / float(placement_query_count)
+    messages_per_request = messages / float(requests_processed_count)
 
     if args.results_format == 'text':
         outfile.write("==============================================================\n")
@@ -172,6 +175,12 @@ def print_compiled_results(args, results, total_wallclock_time):
         outfile.write("  Avg time in claim transaction:      %7.5f\n" % claim_avg_trx_time)
         outfile.write("  Min time in claim transaction:      %7.5f\n" % claim_min_trx_time)
         outfile.write("  Max time in claim transaction:      %7.5f\n" % claim_max_trx_time)
+        outfile.write("--------------------------------------------------------------\n")
+        outfile.write(" Messages processed\n")
+        outfile.write("--------------------------------------------------------------\n")
+        outfile.write("  Total messages:                     %d\n" % messages)
+        outfile.write("  Messages per query:                 %7.5f\n" % messages_per_query)
+        outfile.write("  Messages per request:               %7.5f\n" % messages_per_request)
         outfile.write("==============================================================\n")
     else:
         if args.results_csv_print_header_row:
@@ -204,6 +213,9 @@ def print_compiled_results(args, results, total_wallclock_time):
                 "Claim avg trx time",
                 "Claim min trx time",
                 "Claim max trx time",
+                "Total messages",
+                "Messages per query",
+                "Messages per request",
             ]
             outfile.write(','.join(header_fields) + '\n')
         row_fields = [
@@ -211,7 +223,7 @@ def print_compiled_results(args, results, total_wallclock_time):
             args.filter_strategy,
             args.placement_strategy,
             args.partition_strategy,
-            do_claim_in_scheduler,
+            do_claim_in_compute,
             calc_num_nodes_from_args(args),
             len(results),
             requests_processed_count,
@@ -235,6 +247,9 @@ def print_compiled_results(args, results, total_wallclock_time):
             claim_avg_trx_time,
             claim_min_trx_time,
             claim_max_trx_time,
+            messages,
+            messages_per_query,
+            messages_per_request,
         ]
         outfile.write(','.join(str(f) for f in row_fields) + '\n')
 

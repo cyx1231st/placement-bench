@@ -28,6 +28,8 @@ class Result(object):
         self.claim_min_trx_time = sys.maxint
         self.claim_max_trx_time = 0
 
+        self.messages = 0
+
     def add_placement_query_time(self, time):
         self.placement_min_query_time = min(self.placement_min_query_time, time)
         self.placement_max_query_time = max(self.placement_max_query_time, time)
