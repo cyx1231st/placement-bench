@@ -54,8 +54,9 @@ def run(args, request_queue, result_queue, done_event):
         """
         if args.schema == 'placement':
             select = db.placement_get_select(args, res_template, worker_number)
-        
+
         records = conn.execute(select)
+        res.add_placement_db_query_time(time.time() - start_placement_query_time)
 
         if args.filter_strategy == 'db':
             return records.fetchone()
@@ -86,9 +87,9 @@ def run(args, request_queue, result_queue, done_event):
                 filtered.append(row)
             if filtered:
                 if args.placement_strategy == 'pack':
-                    filtered.sort(key=lambda t: (t['ram_used'], t['cpu_used'], -t['id']), reverse=True)
-                if args.placement_strategy == 'spread':
                     filtered.sort(key=lambda t: (t['ram_used'], t['cpu_used'], t['id']))
+                if args.placement_strategy == 'spread':
+                    filtered.sort(key=lambda t: (t['ram_used'], t['cpu_used'], -t['id']), reverse=True)
                 if args.placement_strategy == 'random':
                     return random.choice(filtered)
                 else:

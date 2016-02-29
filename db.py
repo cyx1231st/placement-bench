@@ -93,7 +93,6 @@ CREATE TABLE inventories (
   max_unit INT NOT NULL,
   step_size INT NOT NULL,
   allocation_ratio FLOAT NOT NULL,
-  generation INT NOT NULL,
   PRIMARY KEY (resource_provider_id, resource_class_id),
   INDEX (resource_class_id)
 )
@@ -167,7 +166,7 @@ def placement_populate(args):
     conn = engine.connect()
     
     # SQLAlchemy warns me that generation field has no default value...
-    warnings.filterwarnings("ignore", '.*generation.*',)
+    # warnings.filterwarnings("ignore", '.*generation.*',)
 
     (rp_tbl, agg_tbl, rp_agg_tbl, inv_tbl, alloc_tbl) = placement_get_tables()
     provider_id = 1
@@ -227,6 +226,7 @@ def placement_populate(args):
 
                 # Associate the compute node with the aggregate
                 # representing the row
+                # NOTE
                 map_ins = rp_agg_tbl.insert().values(
                         resource_provider_id=provider_id,
                         aggregate_id=row)
@@ -387,7 +387,7 @@ def placement_get_select(args, res_template, worker_number):
             ram_filtered.c.min_unit <= res_template[const.RAM_MB],
             ram_filtered.c.max_unit >= res_template[const.RAM_MB],
             sql.func.floor((ram_filtered.c.total - ram_filtered.c.reserved) * ram_filtered.c.allocation_ratio)
-            - sql.func.ifnull(ram_usage.c.used, 0) >= res_template[const.VCPU],
+            - sql.func.ifnull(ram_usage.c.used, 0) >= res_template[const.RAM_MB],
             cpu_filtered.c.min_unit <= res_template[const.VCPU],
             cpu_filtered.c.max_unit >= res_template[const.VCPU],
             sql.func.floor((cpu_filtered.c.total - cpu_filtered.c.reserved) * cpu_filtered.c.allocation_ratio)

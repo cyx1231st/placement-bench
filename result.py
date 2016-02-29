@@ -16,6 +16,7 @@ class Result(object):
         self.placement_total_query_time = 0
         self.placement_min_query_time = sys.maxint
         self.placement_max_query_time = 0
+        self.placement_db_query_time = 0
 
         # Claim transaction stats
         self.claim_trx_count = 0
@@ -31,6 +32,9 @@ class Result(object):
         self.placement_min_query_time = min(self.placement_min_query_time, time)
         self.placement_max_query_time = max(self.placement_max_query_time, time)
         self.placement_total_query_time += time
+
+    def add_placement_db_query_time(self, time):
+        self.placement_db_query_time += time
 
     def add_claim_trx_time(self, time):
         self.claim_min_trx_time = min(self.claim_min_trx_time, time)

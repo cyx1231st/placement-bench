@@ -104,9 +104,10 @@ def print_compiled_results(args, results, total_wallclock_time):
     else:
         outfile = sys.stdout
 
-    do_claim_in_scheduler = 'Yes' if args.do_claim_in_scheduler else 'No'
+    do_claim_in_compute = 'Yes' if args.do_claim_in_compute else 'No'
 
     placement_total_query_time = sum(r.placement_total_query_time for r in results)
+    placement_total_db_query_time = sum(r.placement_db_query_time for r in results)
     requests_processed_count = sum(r.requests_processed_count for r in results)
     placement_query_count = sum(r.placement_query_count for r in results)
     placement_found_provider_count = sum(r.placement_found_provider_count for r in results)
@@ -120,8 +121,13 @@ def print_compiled_results(args, results, total_wallclock_time):
     claim_trx_count = sum(r.claim_trx_count for r in results)
     claim_success_count = sum(r.claim_success_count for r in results)
     claim_total_trx_time = sum(r.claim_total_trx_time for r in results)
-    claim_avg_trx_time = claim_total_trx_time / claim_trx_count
+    if claim_trx_count:
+        claim_avg_trx_time = claim_total_trx_time / claim_trx_count
+    else:
+        claim_avg_trx_time = 0
     claim_min_trx_time = min(r.claim_min_trx_time for r in results)
+    if claim_min_trx_time == sys.maxint:
+        claim_min_trx_time = 0
     claim_max_trx_time = max(r.claim_max_trx_time for r in results)
     claim_total_deadlock_sleep_time = sum(r.claim_total_deadlock_sleep_time for r in results)
     success_claims_per_second = claim_success_count / total_wallclock_time
@@ -134,7 +140,7 @@ def print_compiled_results(args, results, total_wallclock_time):
         outfile.write("  Filter strategy:                    %s\n" % args.filter_strategy)
         outfile.write("  Placement strategy:                 %s\n" % args.placement_strategy)
         outfile.write("  Partition strategy:                 %s\n" % args.partition_strategy)
-        outfile.write("  Do claim in scheduler?              %s\n" % do_claim_in_scheduler)
+        outfile.write("  Do claim in compute?                %s\n" % do_claim_in_compute)
         outfile.write("  Number of compute nodes:            %d\n" % calc_num_nodes_from_args(args))
         outfile.write("  Number of scheduler processes:      %d\n" % len(results))
         outfile.write("  Number of requests processed:       %d\n" % requests_processed_count)
@@ -148,6 +154,7 @@ def print_compiled_results(args, results, total_wallclock_time):
         outfile.write("  Count not found provider:           %d\n" % placement_no_found_provider_count)
         outfile.write("  Count random no found retries:      %d\n" % placement_random_no_found_retry_count)
         outfile.write("  Total time filtering:               %7.5f\n" % placement_total_query_time)
+        outfile.write("  Total time filtering in db:         %7.5f\n" % placement_total_db_query_time)
         outfile.write("  Avg time to filter:                 %7.5f\n" % placement_avg_query_time)
         outfile.write("  Min time to filter:                 %7.5f\n" % placement_min_query_time)
         outfile.write("  Max time to filter:                 %7.5f\n" % placement_max_query_time)
@@ -171,7 +178,7 @@ def print_compiled_results(args, results, total_wallclock_time):
                 "Filter strategy",
                 "Placement strategy",
                 "Partition strategy",
-                "Do claim in scheduler?",
+                "Do claim in compute?",
                 "Number of nodes",
                 "Number of worker processes",
                 "Count of requests processed",
@@ -182,6 +189,7 @@ def print_compiled_results(args, results, total_wallclock_time):
                 "Placement no found provider count",
                 "Placement random no found retry count",
                 "Placement total query time",
+                "Placement total db query time",
                 "Placement avg query time",
                 "Placement min query time",
                 "Placement max query time",
@@ -212,6 +220,7 @@ def print_compiled_results(args, results, total_wallclock_time):
             placement_no_found_provider_count,
             placement_random_no_found_retry_count,
             placement_total_query_time,
+            placement_total_db_query_time,
             placement_avg_query_time,
             placement_min_query_time,
             placement_max_query_time,
@@ -256,8 +265,7 @@ def main():
     parser.add_argument('--filter-strategy',
                         choices=FILTER_STRATEGY_CHOICES,
                         help="The filter strategy to use for scheduler.")
-    parser.add_argument('--do-claim-in-scheduler', action="store_true",
-                        default=True,
+    parser.add_argument('--do-claim-in-compute', action="store_true",
                         help="Perform the claim operation in the scheduler "
                              "process instead of on the compute node.")
     parser.add_argument('--placement-strategy',
