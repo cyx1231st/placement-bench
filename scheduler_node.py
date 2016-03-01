@@ -11,7 +11,7 @@ import scheduler_structs
 
 LOG = logging.getLogger('scheduler')
 
-MAX_ATTEMPTS = 3
+MAX_ATTEMPTS = 5
 
 
 class ForkedPdb(pdb.Pdb):
@@ -88,6 +88,7 @@ def schedule(record, records, compute_queue_map,
 
 def process_msg(reply, scheduler_queue, scheduler_name,
                 node_states, records, compute_queue_map, res, args):
+    global MAX_ATTEMPTS
     res.messages += 1
     if reply.scheduler == scheduler_name:
         if reply.proceed:
@@ -97,7 +98,7 @@ def process_msg(reply, scheduler_queue, scheduler_name,
             # failure
             record = records[reply.uuid]
             record.fail()
-            if record.attempts >= 3:
+            if record.attempts >= MAX_ATTEMPTS:
                 del records[reply.uuid]
             else:
                 record.attempts += 1
@@ -156,6 +157,7 @@ def run(args, scheduler_name, compute_queue_map, scheduler_queue,
 
     while True:
         entry = request_queue.get()
+        res.messages += 1
         if entry is None:
             finishing(scheduler_queue, scheduler_name, node_states,
                       attempt_records, compute_queue_map, res, args)
